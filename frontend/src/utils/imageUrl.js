@@ -14,7 +14,7 @@ export const getImageUrl = (path) => {
   const cdnUrl = import.meta.env.VITE_CDN_URL || 'https://trendora-9k7e.onrender.com/uploads';
   
   // Strip trailing /uploads to build backend base url
-  const cdnBase = cdnUrl.replace(/\/uploads\/?$/, '');
+  const cdnBase = (cdnUrl || '').replace(/\/uploads\/?$/, '');
   
   // Ensure the relative path starts with a slash
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
