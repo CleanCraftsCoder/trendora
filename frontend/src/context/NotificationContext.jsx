@@ -21,7 +21,7 @@ export const NotificationProvider = ({ children }) => {
 
   // Helper: Get backend URL from Vite environment and convert to WebSocket origin
   const getSocketUrl = () => {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://trendora-9k7e.onrender.com/api';
     return apiBaseUrl.replace('/api', '');
   };
 

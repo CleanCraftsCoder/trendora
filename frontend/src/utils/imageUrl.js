@@ -11,7 +11,7 @@ export const getImageUrl = (path) => {
   }
   
   // Retrieve CDN configuration from environment
-  const cdnUrl = import.meta.env.VITE_CDN_URL || 'http://localhost:5000/uploads';
+  const cdnUrl = import.meta.env.VITE_CDN_URL || 'https://trendora-9k7e.onrender.com/uploads';
   
   // Strip trailing /uploads to build backend base url
   const cdnBase = cdnUrl.replace(/\/uploads\/?$/, '');
