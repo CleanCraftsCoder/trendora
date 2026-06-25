@@ -1,0 +1,20 @@
+{
+  "name": "trendora-monolith",
+  "version": "1.0.0",
+  "description": "Trendora AI-powered Social Platform - Unified Build Configuration",
+  "main": "backend/server.js",
+  "scripts": {
+    "install:backend": "npm install --prefix backend",
+    "install:frontend": "npm install --prefix frontend",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "build:frontend": "npm run build --prefix frontend",
+    "build": "npm run install:all && npm run build:frontend",
+    "start": "node backend/server.js",
+    "backend": "npm run dev --prefix backend",
+    "frontend": "npm run dev --prefix frontend",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
