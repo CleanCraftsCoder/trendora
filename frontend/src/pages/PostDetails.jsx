@@ -154,7 +154,8 @@ const PostDetails = () => {
     minute: '2-digit',
   });
 
-  const cdnBase = import.meta.env.VITE_CDN_URL.replace('/uploads', '');
+  const cdnBase = (import.meta.env.VITE_CDN_URL || 'https://trendora-9k7e.onrender.com/uploads')
+    .replace('/uploads', '');
 
   return (
     <div style={styles.container}>

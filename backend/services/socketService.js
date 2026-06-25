@@ -49,7 +49,7 @@ const init = (httpServer) => {
 
   // Connection Event
   io.on('connection', (socket) => {
-    const userId = socket.user.id;
+    const userId = socket.user.userId || socket.user.id;
     logger.info(`🔌 Socket connected: User ${userId} (Socket ID: ${socket.id})`);
 
     // Add socket to user's set of active connections

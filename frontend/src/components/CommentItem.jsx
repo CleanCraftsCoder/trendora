@@ -28,7 +28,8 @@ const CommentItem = ({ comment, postId, onDeleteSuccess, onUpdateSuccess }) => {
 
   const isOwner = currentUser?.id === comment.author?.id || currentUser?.id === comment.author?._id;
   const isRoot = !comment.parentComment;
-  const cdnBase = import.meta.env.VITE_CDN_URL.replace('/uploads', '');
+  const cdnBase = (import.meta.env.VITE_CDN_URL || 'https://trendora-9k7e.onrender.com/uploads')
+    .replace('/uploads', '');
 
   const handleLikeToggle = async (e) => {
     e.stopPropagation();

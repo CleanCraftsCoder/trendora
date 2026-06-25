@@ -129,7 +129,8 @@ const PostCard = ({ post, onDeleteSuccess }) => {
     ? `${post.caption.substring(0, 150)}...` 
     : post.caption;
 
-  const cdnBase = import.meta.env.VITE_CDN_URL.replace('/uploads', '');
+  const cdnBase = (import.meta.env.VITE_CDN_URL || 'https://trendora-9k7e.onrender.com/uploads')
+    .replace('/uploads', '');
 
   return (
     <article style={styles.card} className="glass-panel" onClick={handlePostClick}>
