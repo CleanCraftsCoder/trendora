@@ -13,8 +13,9 @@ const GoogleAuthButton = ({ isSignup = false, onError }) => {
 
   const googleBtnRef = useRef(null);
 
-  // Active client ID: either from environment variable or saved in localStorage
-  const envClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  // Active client ID: from environment variable, fallback constant, or saved in localStorage
+  const DEFAULT_GOOGLE_CLIENT_ID = '103416926774-elfv4t8kafg1k7su60rjqln1ava0oega.apps.googleusercontent.com';
+  const envClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID;
   const [activeClientId, setActiveClientId] = useState(
     envClientId || localStorage.getItem('trendora_google_client_id') || ''
   );
