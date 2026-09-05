@@ -9,6 +9,10 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
   const [activeCaptionIdx, setActiveCaptionIdx] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
   const [error, setError] = useState('');
+  const [vibe, setVibe] = useState('All');
+  const [keywordInput, setKeywordInput] = useState('');
+
+  const VIBES = ['All', 'Aesthetic ✨', 'Chill 🌿', 'Hype 🔥', 'Tech 💻', 'Fitness ⚡', 'Minimal ☁️'];
 
   const generateSuggestions = async () => {
     if (!imageFile) return;
@@ -19,6 +23,13 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
 
     const formData = new FormData();
     formData.append('image', imageFile);
+    if (vibe && vibe !== 'All') {
+      formData.append('vibe', vibe);
+    }
+    if (keywordInput.trim()) {
+      formData.append('keywords', keywordInput.trim());
+    }
+    formData.append('nonce', Date.now().toString());
 
     try {
       const res = await api.post('/posts/generate-caption', formData, {
@@ -72,19 +83,59 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
             onClick={generateSuggestions} 
             disabled={loading} 
             style={styles.refreshBtn}
+            title="Generate new, different captions"
           >
             {loading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}
-            <span>Regenerate</span>
+            <span>Regenerate Fresh</span>
           </button>
         )}
       </div>
 
       {error && <p style={styles.errorText}>{error}</p>}
 
+      {/* Vibe & Hint Controls */}
+      <div style={styles.controlsSection}>
+        <div style={styles.vibeRow}>
+          <span style={styles.vibeLabel}>Vibe:</span>
+          <div style={styles.vibePills}>
+            {VIBES.map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVibe(v)}
+                style={{
+                  ...styles.vibePill,
+                  ...(vibe === v ? styles.activeVibePill : {}),
+                }}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={styles.hintRow}>
+          <input
+            type="text"
+            placeholder="Optional hint: e.g. sunset, workout, coffee, coding..."
+            value={keywordInput}
+            onChange={(e) => setKeywordInput(e.target.value)}
+            className="input-field"
+            style={styles.hintInput}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                generateSuggestions();
+              }
+            }}
+          />
+        </div>
+      </div>
+
       {captions.length === 0 ? (
         <div style={styles.ctaBlock}>
           <p style={styles.ctaText}>
-            Want a perfect caption? Let the Trendora Vision AI analyze your image and write suggested options and hashtags.
+            Let Trendora AI write unique, customized captions and trending hashtags based on your photo.
           </p>
           <button
             type="button"
@@ -99,7 +150,7 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
             {loading ? (
               <>
                 <Loader2 size={16} className="spinner" style={{ marginRight: '0.5rem' }} />
-                Analyzing Image...
+                Generating Unique Captions...
               </>
             ) : (
               <>
@@ -209,6 +260,58 @@ const styles = {
     padding: '0.25rem 0.5rem',
     borderRadius: 'var(--radius-sm)',
     transition: 'var(--transition-fast)',
+  },
+  controlsSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+    background: 'rgba(255, 255, 255, 0.02)',
+    padding: '0.75rem',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border-glass)',
+  },
+  vibeRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    flexWrap: 'wrap',
+  },
+  vibeLabel: {
+    fontSize: '0.75rem',
+    fontWeight: '700',
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+  vibePills: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0.35rem',
+  },
+  vibePill: {
+    background: 'rgba(255, 255, 255, 0.04)',
+    border: '1px solid var(--border-glass)',
+    color: 'var(--text-secondary)',
+    borderRadius: 'var(--radius-full)',
+    padding: '0.2rem 0.6rem',
+    fontSize: '0.75rem',
+    cursor: 'pointer',
+    transition: 'var(--transition-fast)',
+  },
+  activeVibePill: {
+    background: 'hsla(265, 85%, 60%, 0.2)',
+    borderColor: 'var(--primary)',
+    color: '#fff',
+    fontWeight: '600',
+  },
+  hintRow: {
+    width: '100%',
+  },
+  hintInput: {
+    width: '100%',
+    padding: '0.45rem 0.75rem',
+    fontSize: '0.8rem',
+    borderRadius: 'var(--radius-sm)',
   },
   ctaBlock: {
     display: 'flex',

@@ -12,7 +12,7 @@ const {
 const { sendSuccess, sendError } = require('../utils/response');
 const { errors } = require('../middlewares/errorHandler');
 const logger = require('../utils/logger');
-const { validatePasswordStrength, validateAndSanitizeEmail } = require('../utils/validators');
+const { validatePasswordStrength, validateAndSanitizeEmail, validateAndSanitizeEmailAsync } = require('../utils/validators');
 const { HTTP_STATUS, ERROR_CODES } = require('../config/constants');
 
 /**
@@ -48,13 +48,14 @@ const register = async (req, res, next) => {
       );
     }
 
-    // Sanitize and validate email
-    const emailValidation = validateAndSanitizeEmail(email);
+    // Sanitize and validate email (format, Gmail rules, disposable check, DNS MX check)
+    const emailValidation = await validateAndSanitizeEmailAsync(email);
     if (!emailValidation.valid) {
       logger.logAuthEvent('register_failed', null, false, {
         reason: 'invalid_email',
         email,
         username,
+        details: emailValidation.message,
       });
 
       return next(
@@ -341,6 +342,11 @@ const getCurrentUser = async (req, res, next) => {
  * Note: Email sending will be implemented in later phase
  *
  * @param {Object} req - Express request object
+/**
+ * Request Password Reset
+ * POST /api/auth/forgot-password
+ *
+ * @param {Object} req - Express request object
  * @param {string} req.body.email - User email
  * @param {Object} res - Express response object
  * @param {Function} next - Express next middleware function
@@ -353,17 +359,19 @@ const forgotPassword = async (req, res, next) => {
       return next(errors.badRequest('Email is required'));
     }
 
+    const sanitizedEmail = email.toLowerCase().trim();
+
     // Find user
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email: sanitizedEmail });
 
     if (!user) {
-      // Don't reveal if email exists or not (security best practice)
+      // Don't reveal if email exists or not (security best practice against account enumeration)
       logger.logAuthEvent('forgot_password_failed', null, false, {
         reason: 'user_not_found',
-        email,
+        email: sanitizedEmail,
       });
 
-      return sendSuccess(res, null, 'If email exists, reset link will be sent');
+      return sendSuccess(res, null, 'If an account exists with this email, password reset instructions have been sent.');
     }
 
     // Generate reset token (valid for 1 hour)
@@ -378,13 +386,76 @@ const forgotPassword = async (req, res, next) => {
       email: user.email,
     });
 
-    // TODO: Send email with reset link
-    // Email sending will be implemented in Phase 4
+    const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
+    logger.info(`Password reset link generated for ${user.email}: ${resetUrl}`);
 
-    sendSuccess(res, null, 'If email exists, reset link will be sent');
+    // In dev/test mode, return token and URL for immediate local testing without SMTP server
+    const responseData = process.env.NODE_ENV !== 'production'
+      ? { resetToken, resetUrl }
+      : null;
+
+    sendSuccess(res, responseData, 'If an account exists with this email, password reset instructions have been sent.');
   } catch (error) {
     logger.logError('Forgot password error', error);
     next(errors.internalServerError('Password reset request failed'));
+  }
+};
+
+/**
+ * Reset Password with Token
+ * POST /api/auth/reset-password
+ *
+ * @param {Object} req - Express request object
+ * @param {string} req.body.token - Password reset token
+ * @param {string} req.body.newPassword - New password
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ */
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || typeof token !== 'string') {
+      return next(errors.badRequest('Reset token is required', { field: 'token' }));
+    }
+
+    if (!newPassword || typeof newPassword !== 'string') {
+      return next(errors.badRequest('New password is required', { field: 'newPassword' }));
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(newPassword);
+    if (!passwordValidation.valid) {
+      return next(errors.badRequest(passwordValidation.message, { field: 'newPassword' }));
+    }
+
+    // Find user with active, unexpired token
+    const user = await User.findOne({
+      verificationToken: token.trim(),
+      verificationExpiry: { $gt: new Date() },
+    }).select('+verificationToken +verificationExpiry +password');
+
+    if (!user) {
+      logger.logAuthEvent('reset_password_failed', null, false, {
+        reason: 'invalid_or_expired_token',
+      });
+      return next(errors.badRequest('Invalid or expired password reset token. Please request a new link.', { field: 'token' }));
+    }
+
+    // Update password (pre-save hook will hash it)
+    user.password = newPassword;
+    user.verificationToken = undefined;
+    user.verificationExpiry = undefined;
+    await user.save();
+
+    logger.logAuthEvent('reset_password_success', user._id, true, {
+      email: user.email,
+    });
+
+    sendSuccess(res, null, 'Password has been reset successfully. You can now log in with your new password.');
+  } catch (error) {
+    logger.logError('Reset password error', error);
+    next(errors.internalServerError('Failed to reset password. Please try again.'));
   }
 };
 
@@ -440,12 +511,203 @@ const verifyEmail = async (req, res, next) => {
   }
 };
 
+/**
+ * Google OAuth Sign-in & Sign-up
+ * POST /api/auth/google
+ *
+ * Handles Google credential (ID Token) verification and either signs in
+ * an existing user or creates a new user profile.
+ */
+const googleAuth = async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential || typeof credential !== 'string') {
+      logger.logAuthEvent('google_auth_failed', null, false, {
+        reason: 'missing_credential',
+      });
+      return next(errors.unauthorized('Google credential is required. Please sign in with your Google account.'));
+    }
+
+    let googleUser = null;
+
+    // In unit test environment, allow mock Google tokens for isolated test execution
+    if (process.env.NODE_ENV === 'test' && credential.startsWith('mock-google-token:')) {
+      try {
+        const rawPayload = Buffer.from(credential.replace('mock-google-token:', ''), 'base64').toString('utf-8');
+        const mockPayload = JSON.parse(rawPayload);
+
+        if (mockPayload.emailVerified === false) {
+          logger.logAuthEvent('google_auth_failed', null, false, {
+            reason: 'email_not_verified_by_google',
+            email: mockPayload.email,
+          });
+          return next(errors.unauthorized('Your Google email address is not verified by Google. Please use a verified Google account.'));
+        }
+
+        googleUser = {
+          googleId: mockPayload.googleId || mockPayload.sub,
+          email: mockPayload.email,
+          emailVerified: true,
+          firstName: mockPayload.firstName || 'GoogleUser',
+          lastName: mockPayload.lastName || 'Account',
+          profilePicture: mockPayload.profilePicture || null,
+        };
+      } catch (e) {
+        logger.warn('Failed to parse test mock google token', { error: e.message });
+      }
+    } else {
+      // Real Google Identity Services ID Token verification with Google OAuth2 API
+      try {
+        const tokenRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+        if (tokenRes.ok) {
+          const tokenInfo = await tokenRes.json();
+
+          // Enforce that Google confirms the email is verified
+          const isVerified = tokenInfo.email_verified === 'true' || tokenInfo.email_verified === true;
+          if (!isVerified) {
+            logger.logAuthEvent('google_auth_failed', null, false, {
+              reason: 'email_not_verified_by_google',
+              email: tokenInfo.email,
+            });
+            return next(errors.unauthorized('Your Google email address is not verified by Google. Please use a verified Google account.'));
+          }
+
+          googleUser = {
+            googleId: tokenInfo.sub,
+            email: tokenInfo.email,
+            emailVerified: true,
+            firstName: tokenInfo.given_name || (tokenInfo.name ? tokenInfo.name.split(' ')[0] : 'User'),
+            lastName: tokenInfo.family_name || (tokenInfo.name ? tokenInfo.name.split(' ').slice(1).join(' ') : ''),
+            profilePicture: tokenInfo.picture || null,
+          };
+        } else {
+          const errText = await tokenRes.text();
+          logger.warn('Google token verification failed', { error: errText });
+        }
+      } catch (fetchErr) {
+        logger.warn('Error connecting to Google token verification endpoint', { error: fetchErr.message });
+      }
+    }
+
+    if (!googleUser || !googleUser.email || !googleUser.googleId) {
+      logger.logAuthEvent('google_auth_failed', null, false, {
+        reason: 'invalid_or_unverified_google_credentials',
+      });
+      return next(errors.unauthorized('Invalid or unverified Google account. Please choose a real, verified Google account.'));
+    }
+
+    // Validate email format and reject anonymous / fake patterns
+    const emailValidation = validateAndSanitizeEmail(googleUser.email);
+    if (!emailValidation.valid) {
+      logger.logAuthEvent('google_auth_failed', null, false, {
+        reason: 'invalid_google_email_format',
+        email: googleUser.email,
+        details: emailValidation.message,
+      });
+      return next(errors.unauthorized(emailValidation.message));
+    }
+
+    const { googleId, email, firstName, lastName, profilePicture } = googleUser;
+    const sanitizedEmail = email.toLowerCase().trim();
+
+    // 3. Find existing user by googleId or email
+    let user = await User.findOne({ googleId });
+
+    if (!user) {
+      // Check if user previously registered with email
+      user = await User.findOne({ email: sanitizedEmail });
+
+      if (user) {
+        // Link googleId to existing account
+        user.googleId = googleId;
+        user.isVerified = true;
+        if (!user.profilePicture && profilePicture) {
+          user.profilePicture = profilePicture;
+        }
+        await user.save();
+        logger.logAuthEvent('google_account_linked', user._id, true, {
+          email: sanitizedEmail,
+        });
+      }
+    }
+
+    // 4. If user does not exist, create new user
+    if (!user) {
+      // Generate a unique, clean username
+      let baseUsername = sanitizedEmail.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+      if (baseUsername.length < 3) baseUsername = `user_${baseUsername}`;
+      if (baseUsername.length > 14) baseUsername = baseUsername.substring(0, 14);
+
+      let generatedUsername = baseUsername;
+      let counter = 1;
+      while (await User.findOne({ username: generatedUsername })) {
+        generatedUsername = `${baseUsername.substring(0, 10)}_${Math.floor(100 + Math.random() * 900)}`;
+        counter++;
+        if (counter > 10) {
+          generatedUsername = `u_${Date.now().toString().slice(-6)}`;
+          break;
+        }
+      }
+
+      user = new User({
+        email: sanitizedEmail,
+        username: generatedUsername,
+        firstName: firstName || 'User',
+        lastName: (lastName && lastName.trim()) ? lastName.trim() : 'Account',
+        profilePicture: profilePicture || null,
+        googleId,
+        authProvider: 'google',
+        isVerified: true,
+      });
+
+      await user.save();
+      logger.logAuthEvent('google_register_success', user._id, true, {
+        email: sanitizedEmail,
+        username: user.username,
+      });
+    } else {
+      logger.logAuthEvent('google_login_success', user._id, true, {
+        email: sanitizedEmail,
+        username: user.username,
+      });
+    }
+
+    // 5. Update last login timestamp and IP
+    user.lastLogin = new Date();
+    user.ipAddress = req.ip;
+    await user.save();
+
+    // 6. Generate access & refresh tokens
+    const tokens = generateTokens(user._id.toString());
+
+    // 7. Return success response
+    sendSuccess(res, {
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profilePicture: user.profilePicture,
+        isVerified: user.isVerified,
+      },
+      tokens,
+    }, 'Google authentication successful');
+  } catch (error) {
+    logger.logError('Google authentication error', error);
+    next(errors.internalServerError('Google authentication failed. Please try again.'));
+  }
+};
+
 module.exports = {
   register,
   login,
+  googleAuth,
   refreshAccessToken,
   logout,
   getCurrentUser,
   forgotPassword,
+  resetPassword,
   verifyEmail,
 };

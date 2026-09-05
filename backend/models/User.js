@@ -33,9 +33,23 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: function () {
+        return !this.googleId;
+      },
       minlength: 8,
       select: false, // Don't return password by default
+    },
+
+    googleId: {
+      type: String,
+      sparse: true,
+      index: true,
+    },
+
+    authProvider: {
+      type: String,
+      enum: ['local', 'google'],
+      default: 'local',
     },
 
     // Profile Information
@@ -193,8 +207,8 @@ userSchema.index({ updatedAt: -1 });
  * Pre-save middleware to hash password
  */
 userSchema.pre('save', async function hashPassword(next) {
-  // Only hash if password is modified or new document
-  if (!this.isModified('password')) return next();
+  // Only hash if password is modified and present
+  if (!this.isModified('password') || !this.password) return next();
 
   try {
     // Generate salt and hash password

@@ -84,6 +84,145 @@ const detectCategory = (filename = '') => {
 };
 
 /**
+ * Hash utility for deterministic or seeded generation
+ */
+const stringHash = (str = '') => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+};
+
+/**
+ * Dynamic caption generator engine
+ * Produces creative, varied, post-specific captions and hashtags across 3 tones:
+ * - Aesthetic ✨
+ * - Energetic 🔥
+ * - Professional 💼
+ */
+const generateDynamicCaptions = ({ filename = '', keywords = '', vibe = '', prompt = '', nonce = 0, fileSize = 0 }) => {
+  const combinedText = `${filename} ${keywords} ${vibe} ${prompt}`.toLowerCase();
+  
+  let detectedCategory = detectCategory(filename);
+  if (detectedCategory === 'general') {
+    if (/art|design|style|color|draw|sketch|aesthetic/.test(combinedText)) detectedCategory = 'art';
+    else if (/fitness|gym|workout|health|run|train|gains/.test(combinedText)) detectedCategory = 'fitness';
+    else if (/city|urban|street|night|lights|skyline|nyc/.test(combinedText)) detectedCategory = 'city';
+    else if (/coffee|cafe|morning|tea|breakfast|latte/.test(combinedText)) detectedCategory = 'coffee';
+    else if (/sunset|sunrise|sky|clouds|goldenhour/.test(combinedText)) detectedCategory = 'sunset';
+    else if (/music|vibe|sound|concert|beat|track/.test(combinedText)) detectedCategory = 'music';
+    else if (/book|study|read|mindset|quote|learn|thoughts/.test(combinedText)) detectedCategory = 'mindset';
+  }
+
+  // Generate seed from combination of factors
+  const randomShift = Math.floor(Math.random() * 5000);
+  const seed = Math.abs(stringHash(combinedText) + Number(nonce || Date.now()) + Number(fileSize || 1024) + randomShift);
+  const pick = (arr, offset = 0) => arr[(seed + offset) % arr.length];
+
+  // Curated contextual subjects
+  const subjectsMap = {
+    travel: ['unexplored paths', 'the beauty of wandering', 'coastal breezes and open roads', 'chasing distant horizons', 'the art of getting lost', 'sun-drenched afternoons'],
+    food: ['culinary comfort', 'the art of slow dining', 'homemade flavors made with intention', 'feasting with good company', 'sweet savory perfection', 'table memories'],
+    tech: ['building digital frontiers', 'lines of code shaping tomorrow', 'creative problem solving', 'the late night breakthrough', 'turning concepts into software', 'next-gen builds'],
+    nature: ['the quiet whisper of trees', 'untamed landscapes', 'earthy tones and crisp mountain air', 'sunlight filtering through the canopy', 'grounding into the present moment', 'deep forest greens'],
+    pets: ['unconditional joy and wagging tails', 'curious paws and gentle hearts', 'the best kind of companionship', 'pure fluff and playful energy', 'everyday moments with a furry best friend'],
+    art: ['creative expression', 'splashes of contrast and vision', 'colors that speak without words', 'visual rhythm and balance', 'giving form to imagination', 'abstract perspectives'],
+    fitness: ['daily discipline and relentless focus', 'the sweat before the triumph', 'building strength from within', 'showing up when nobody is watching', 'moving with power and intent', 'heavy lifts and high standards'],
+    city: ['urban rhythms and late night neon', 'concrete canyons and high energy', 'city lights reflecting memories', 'moving through the bustling streets', 'architecture and modern pace', 'midnight skylines'],
+    coffee: ['the warmth of a fresh brew', 'steam rising into slow mornings', 'quiet cafe corners and deep thoughts', 'caffeine-fueled inspiration', 'the ritual of morning coffee', 'espresso shots and calm moments'],
+    sunset: ['golden hour glow', 'the sky painted in amber and violet', 'watching daylight melt away', 'quiet serenity as the stars appear', 'the poetry of the evening sky', 'warm fading light'],
+    mindset: ['intentional growth', 'clarity found in quiet moments', 'stepping into the next level', 'protecting your peace and focus', 'continuous evolution', 'silent victories'],
+    general: ['the beauty of the everyday', 'living in full color', 'unfiltered moments of real life', 'holding onto small joys', 'the story unfolding behind the lens', 'spaces that inspire', 'authentic frames and real feelings', 'the simple things that mean the most']
+  };
+
+  const currentSubjects = subjectsMap[detectedCategory] || subjectsMap.general;
+  const userKeywordClean = (keywords || prompt || '').trim().replace(/[^\w\s]/g, '');
+  const subject1 = userKeywordClean || pick(currentSubjects, 1);
+  const subject2 = userKeywordClean || pick(currentSubjects, 3);
+  const subject3 = userKeywordClean || pick(currentSubjects, 7);
+
+  // Tone 1: Aesthetic ✨
+  const aestheticTemplates = [
+    `Finding quiet magic in ${subject1}. A gentle reminder that peace is created from within. ✨🌿`,
+    `Soft light, calm thoughts, and ${subject1}. Letting the moments speak for themselves. 🕊️💫`,
+    `Somewhere between daydreaming and doing. Forever fascinated by ${subject1}. ☁️📸`,
+    `Curating peace, one frame at a time. The poetry found in ${subject1}. 🕯️✨`,
+    `Golden hues and good company. Creating a life that feels good on the inside. 🌅🧡`,
+    `A little blur, a lot of life. Completely immersed in ${subject1}. 🎞️🤍`,
+    `Noticing the subtle details that usually slip by. ${subject1} in full bloom. 🌸✨`,
+    `Collecting moments that don't need a filter. Pure ${subject1} essence. 🌾✨`,
+    `When the lighting and the vibe align just right. Embracing ${subject1}. 🌙✨`,
+    `A visual diary entry: gentle thoughts, slow sips, and ${subject1}. ☕📖`
+  ];
+
+  // Tone 2: Energetic 🔥
+  const energeticTemplates = [
+    `Unstoppable momentum! 🚀 Dialed in on ${subject2} and turning the dial all the way up. What are you chasing today? Drop it below! 👇🔥`,
+    `Main character energy on 100%! 💥 No shortcuts, no excuses—just pure dedication to ${subject2}. Let's get it! ⚡🎯`,
+    `Big goals, bigger focus. When you're passionate about ${subject2}, the energy is contagious! Who's locked in with me? 🥊🔥`,
+    `New day, new canvas, maximum impact! ⚡ Taking on ${subject2} with everything I've got. What's your top goal this week? 💬💥`,
+    `Fueling the fire with good vibes and relentless hustle. 🔥 ${subject2} is just getting started! 🚀✨`,
+    `Keep showing up until they can't ignore the work. 📈 High energy, zero doubt! ⚡🔥`,
+    `Making bold moves only! 💥 Diving headfirst into ${subject2}. Rate this energy 1-10! 👇⚡`,
+    `Leveling up every single chapter. 🏆 Never trade discipline for convenience. We stay building! 💥🚀`,
+    `Energy is currency—spend it where it grows! ⚡ Bringing pure fire to ${subject2}. Let's make it count! 🔥🎯`
+  ];
+
+  // Tone 3: Professional 💼
+  const professionalTemplates = [
+    `Perspective and execution in harmony. Focusing on intentional craft, sustainable progress, and ${subject3}. 📊💡`,
+    `Behind every meaningful outcome is a series of deliberate steps. Reflecting on the process of ${subject3}. 📈🤝`,
+    `Elevating standards and exploring new frontiers. Consistency remains the ultimate competitive edge in ${subject3}. 🌐✨`,
+    `A thoughtful look into ${subject3}. The future belongs to those who build with precision and clarity. 💼📌`,
+    `Mastering the fundamentals while embracing the evolution of ${subject3}. Continuous growth is non-negotiable. 🎯🚀`,
+    `Balancing strategic vision with authentic execution. Finding clarity in ${subject3}. 🧭✨`,
+    `Deep focus produces deep results. Taking notes on where ${subject3} is headed next. 💡📑`,
+    `Innovation isn't about complexity; it's about solving the right problems with elegance. Insights on ${subject3}. 🔍💼`
+  ];
+
+  const caption1 = pick(aestheticTemplates, 0);
+  const caption2 = pick(energeticTemplates, 3);
+  const caption3 = pick(professionalTemplates, 6);
+
+  // Dynamic hashtag pools
+  const categoryTagsMap = {
+    travel: ['travelgram', 'wanderlust', 'exploremore', 'roamtheplanet', 'passportready', 'stayandwander'],
+    food: ['foodie', 'instafood', 'culinaryart', 'delicious', 'foodphotography', 'tasteofhome'],
+    tech: ['coding', 'developer', 'softwareengineering', 'techcommunity', 'buildinpublic', 'innovation'],
+    nature: ['naturelovers', 'wildlifephotography', 'earthfocus', 'optoutside', 'greatoutdoors', 'landscape'],
+    pets: ['petsofinstagram', 'cutepets', 'doglife', 'catsofinsta', 'furryfriend', 'animallover'],
+    art: ['creativecommunity', 'visualart', 'artoftheday', 'designinspiration', 'aestheticart', 'contemporary'],
+    fitness: ['fitlife', 'gymmotivation', 'workoutroutine', 'discipline', 'healthylifestyle', 'pushyourlimits'],
+    city: ['cityscape', 'urbanphotography', 'streetvibes', 'citylife', 'nightphotography', 'metropolis'],
+    coffee: ['coffeetime', 'coffeelover', 'baristadaily', 'caffeinevibes', 'morningritual', 'cafevibes'],
+    sunset: ['sunsetlovers', 'goldenhour', 'skylovers', 'dusk', 'sunsetphotography', 'chasinglight'],
+    mindset: ['growthmindset', 'selfgrowth', 'mindsetmatters', 'positivevibes', 'dailyinspiration', 'focus'],
+    general: ['trendora', 'lifestyle', 'goodvibes', 'photooftheday', 'creatorcommunity', 'aesthetic', 'visualsoflife']
+  };
+
+  const pool = categoryTagsMap[detectedCategory] || categoryTagsMap.general;
+  const generalPool = categoryTagsMap.general;
+
+  const selectedTags = new Set();
+  if (userKeywordClean) {
+    selectedTags.add(userKeywordClean.toLowerCase().replace(/\s+/g, ''));
+  }
+  for (let i = 0; i < 4; i++) {
+    selectedTags.add(pick(pool, i * 2 + 1));
+  }
+  for (let i = 0; i < 3; i++) {
+    selectedTags.add(pick(generalPool, i * 3 + 2));
+  }
+
+  return {
+    captions: [caption1, caption2, caption3],
+    hashtags: Array.from(selectedTags).slice(0, 8),
+  };
+};
+
+/**
  * Generate suggested captions and hashtags based on uploaded image
  * POST /api/posts/generate-caption
  */
@@ -96,9 +235,11 @@ const generateCaption = async (req, res, next) => {
       });
     }
 
-    const { path: filePath, originalname: filename } = req.file;
+    const { path: filePath, originalname: filename, size: fileSize } = req.file;
+    const { prompt = '', vibe = '', keywords = '', nonce = Date.now() } = req.body || {};
+    
     const apiKey = process.env.OPENAI_API_KEY;
-    const isRealKey = apiKey && apiKey.startsWith('sk-') && !apiKey.includes('your_openai');
+    const isRealKey = apiKey && apiKey.startsWith('sk-') && !apiKey.includes('mock') && !apiKey.includes('your_openai') && !apiKey.includes('local');
     const isUrl = filePath && (filePath.startsWith('http://') || filePath.startsWith('https://'));
 
     let responseData;
@@ -114,6 +255,10 @@ const generateCaption = async (req, res, next) => {
           imageUrlVal = `data:${imageMimeType};base64,${imageBase64}`;
         }
 
+        const userPromptText = prompt || keywords || vibe 
+          ? `User guidance/keywords: "${prompt || keywords || vibe}".`
+          : '';
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -128,7 +273,7 @@ const generateCaption = async (req, res, next) => {
                 content: [
                   {
                     type: 'text',
-                    text: 'Analyze this image and return a JSON object with two fields: "captions" (an array of 3 distinct, engaging social media caption options: one aesthetic/cool, one energetic/funny, and one professional/descriptive) and "hashtags" (an array of 5 highly relevant hashtags based on the image). Return only raw JSON, no markdown code block backticks.'
+                    text: `Analyze this image and ${userPromptText} Return a JSON object with two fields: "captions" (an array of 3 distinct, highly engaging social media captions: 1. Aesthetic ✨, 2. Energetic/Hype 🔥, 3. Professional/Reflective 💼) and "hashtags" (an array of 6-8 trending, relevant hashtags). Return only raw JSON without markdown backticks.`
                   },
                   {
                     type: 'image_url',
@@ -152,17 +297,23 @@ const generateCaption = async (req, res, next) => {
           }
         } else {
           const errorText = await response.text();
-          logger.warn('OpenAI Vision API failed, using fallback', { error: errorText });
+          logger.warn('OpenAI Vision API failed, using dynamic generator fallback', { error: errorText });
         }
       } catch (err) {
-        logger.warn('OpenAI Vision call error, using local fallback', { error: err.message });
+        logger.warn('OpenAI Vision call error, using dynamic generator fallback', { error: err.message });
       }
     }
 
-    // Fallback if OpenAI not set or failed
+    // Dynamic generation fallback (runs when OpenAI is mock or unavailable)
     if (!responseData) {
-      const category = detectCategory(filename);
-      responseData = MOCK_CATEGORIES[category];
+      responseData = generateDynamicCaptions({
+        filename,
+        keywords,
+        vibe,
+        prompt,
+        nonce,
+        fileSize,
+      });
     }
 
     // Cleanup uploaded temp file to prevent server bloat (skip for Cloudinary URLs)
@@ -275,5 +426,7 @@ module.exports = {
   generateCaption,
   generateHashtags,
   detectCategory,
+  generateDynamicCaptions,
+  stringHash,
   MOCK_CATEGORIES,
 };

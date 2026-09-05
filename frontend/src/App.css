@@ -1,16 +1,36 @@
-/* Custom layouts and animations */
-.app-container {
-  display: flex;
+/* Custom layouts and responsive system */
+.layout-root {
   min-height: 100vh;
+  width: 100%;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   position: relative;
 }
 
-.main-content {
+.layout-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+  gap: 1rem;
+}
+
+.desktop-sidebar-container {
+  display: block;
+}
+
+.main-content-layout {
   flex: 1;
-  padding: 2rem;
-  max-width: 800px;
+  padding: 2rem 1rem;
+  min-height: 100vh;
+  max-width: 760px;
   margin: 0 auto;
   width: 100%;
+  overflow-y: auto;
+}
+
+.desktop-suggestions-container {
+  display: block;
 }
 
 .auth-container {
@@ -18,6 +38,140 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  padding: 1rem;
+  padding: 1.5rem 1rem;
   width: 100%;
+}
+
+/* Visibility utilities */
+.mobile-only {
+  display: none !important;
+}
+
+.desktop-only {
+  display: block !important;
+}
+
+/* Tablet Breakpoint (<= 1100px) */
+@media (max-width: 1100px) {
+  .desktop-suggestions-container {
+    display: none !important;
+  }
+  .tablet-hide {
+    display: none !important;
+  }
+  .main-content-layout {
+    max-width: 800px;
+  }
+}
+
+/* Mobile Breakpoint (<= 768px) */
+@media (max-width: 768px) {
+  .mobile-only {
+    display: flex !important;
+  }
+  header.mobile-only {
+    display: flex !important;
+  }
+  nav.mobile-only {
+    display: flex !important;
+  }
+  .desktop-only,
+  .desktop-sidebar-container {
+    display: none !important;
+  }
+  .layout-container {
+    display: block;
+    gap: 0;
+    min-height: auto;
+  }
+  .main-content-layout {
+    padding: 1rem 0.75rem 5.5rem 0.75rem;
+    max-width: 100%;
+    margin: 0;
+    min-height: calc(100vh - 116px);
+  }
+  .auth-container {
+    padding: 1rem 0.75rem;
+    min-height: 100vh;
+  }
+
+  /* Responsive cards and panels */
+  .glass-panel,
+  .glass-card {
+    border-radius: var(--radius-md) !important;
+  }
+
+  /* Auth card responsive sizing */
+  .auth-card {
+    padding: 2rem 1.25rem !important;
+    max-width: 100% !important;
+  }
+
+  /* Signup / Login form rows stack on small screens */
+  .signup-row,
+  .form-row {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Home header wrap */
+  .home-header-top {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Post cards responsive spacing */
+  .post-card-container {
+    padding: 1.15rem 0.85rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .post-actions-bar {
+    gap: 0.75rem !important;
+    justify-content: space-between !important;
+  }
+
+  /* Create post form responsive padding */
+  .responsive-form {
+    padding: 1.25rem 0.85rem !important;
+  }
+
+  /* Profile header responsive adjustments */
+  .profile-cover-responsive {
+    height: 140px !important;
+  }
+
+  .profile-header-responsive {
+    margin-top: -2.75rem !important;
+    padding: 0 0.75rem !important;
+    flex-wrap: wrap !important;
+    gap: 0.75rem !important;
+    align-items: flex-end !important;
+  }
+
+  .profile-avatar-responsive {
+    width: 80px !important;
+    height: 80px !important;
+  }
+}
+
+/* Small phones (<= 480px) */
+@media (max-width: 480px) {
+  .main-content-layout {
+    padding: 0.75rem 0.5rem 5.5rem 0.5rem;
+  }
+
+  .auth-container {
+    padding: 0.5rem;
+  }
+
+  .auth-card {
+    padding: 1.75rem 1rem !important;
+  }
+
+  .responsive-visibility-grid {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
 }

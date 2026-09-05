@@ -97,7 +97,7 @@ const Home = () => {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <div style={styles.headerTop}>
+        <div style={styles.headerTop} className="home-header-top">
           <div style={styles.headerTitles}>
             <h2 style={styles.title}>Welcome back, {user?.firstName}!</h2>
             <p style={styles.subtitle}>Here is what is happening with your Trendora network today.</p>

@@ -120,7 +120,7 @@ const CreatePost = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={styles.form} className="glass-panel">
+      <form onSubmit={handleSubmit} style={styles.form} className="glass-panel responsive-form">
         {/* Drag and Drop Zone */}
         <div style={styles.uploadSection}>
           {previews.length === 0 ? (
@@ -197,7 +197,7 @@ const CreatePost = () => {
         {/* Visibility Form Input */}
         <div className="input-group">
           <label className="input-label">Post Visibility</label>
-          <div style={styles.visibilityGrid}>
+          <div style={styles.visibilityGrid} className="responsive-visibility-grid">
             <button
               type="button"
               onClick={() => setVisibility('public')}

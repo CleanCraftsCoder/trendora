@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, User, AlertCircle, Eye, EyeOff, Check, X } from 'lucide-react';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 
 const Signup = () => {
   const [email, setEmail] = useState('');
@@ -36,7 +37,51 @@ const Signup = () => {
     });
   }, [password]);
 
-  const isPasswordValid = Object.values(passRequirements).every(Boolean);
+  const getEmailValidationError = (val) => {
+    if (!val || !val.includes('@')) return '';
+    const trimmed = val.trim().toLowerCase();
+    const parts = trimmed.split('@');
+    if (parts.length !== 2) return 'Invalid email format';
+    const [userPart, domainPart] = parts;
+
+    if (domainPart === 'gmail.com' || domainPart === 'googlemail.com') {
+      if (userPart.length < 6) {
+        return `Gmail usernames must be at least 6 characters ("${trimmed}" does not exist on Gmail).`;
+      }
+      if (userPart.length > 30) {
+        return 'Gmail usernames cannot exceed 30 characters.';
+      }
+      if (!/^[a-z0-9.]+$/.test(userPart)) {
+        return 'Gmail only allows letters (a-z), numbers (0-9), and periods (.).';
+      }
+      if (userPart.startsWith('.') || userPart.endsWith('.') || userPart.includes('..')) {
+        return 'Gmail addresses cannot begin/end with a dot or contain consecutive dots.';
+      }
+      if (/^(anonymous|nobody|fake|dummy|test|temp|throwaway|acb|abc)$/i.test(userPart)) {
+        return 'Anonymous or placeholder Gmail addresses are not accepted.';
+      }
+    }
+
+    const disposable = [
+      'mailinator.com',
+      'tempmail.com',
+      '10minutemail.com',
+      'guerrillamail.com',
+      'throwawaymail.com',
+      'trashmail.com',
+      'yopmail.com',
+      'sharklasers.com',
+      'dispostable.com',
+      'fake.com',
+    ];
+    if (disposable.includes(domainPart)) {
+      return 'Disposable email addresses are not permitted. Please use a permanent email.';
+    }
+
+    return '';
+  };
+
+  const emailError = getEmailValidationError(email);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,6 +89,12 @@ const Signup = () => {
 
     if (!email || !username || !firstName || !lastName || !password) {
       setFormError('Please fill in all fields.');
+      return;
+    }
+
+    const validationMsg = getEmailValidationError(email);
+    if (validationMsg) {
+      setFormError(validationMsg);
       return;
     }
 
@@ -55,11 +106,11 @@ const Signup = () => {
     setIsSubmitting(true);
     try {
       await register({
-        email,
-        username,
+        email: email.trim().toLowerCase(),
+        username: username.trim(),
         password,
-        firstName,
-        lastName,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
       });
       navigate('/');
     } catch (err) {
@@ -77,7 +128,7 @@ const Signup = () => {
         <div className="blob blob-2"></div>
       </div>
 
-      <div style={styles.card} className="glass-panel">
+      <div style={styles.card} className="glass-panel auth-card">
         <div style={styles.header}>
           <h1 style={styles.brandTitle}>Trendora</h1>
           <p style={styles.brandSubtitle}>Join now and connect with global creators</p>
@@ -91,7 +142,7 @@ const Signup = () => {
         )}
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.row}>
+          <div style={styles.row} className="signup-row">
             <div className="input-group">
               <label className="input-label">First Name</label>
               <div style={styles.inputContainer}>
@@ -155,6 +206,12 @@ const Signup = () => {
                 required
               />
             </div>
+            {emailError && (
+              <div style={{ color: 'var(--error)', fontSize: '0.78rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                <span>{emailError}</span>
+              </div>
+            )}
           </div>
 
           <div className="input-group">
@@ -225,6 +282,14 @@ const Signup = () => {
             )}
           </button>
         </form>
+
+        <div style={styles.divider}>
+          <span style={styles.dividerLine}></span>
+          <span style={styles.dividerText}>or continue with</span>
+          <span style={styles.dividerLine}></span>
+        </div>
+
+        <GoogleAuthButton isSignup={true} onError={(msg) => setFormError(msg)} />
 
         <div style={styles.footer}>
           <span style={styles.footerText}>Already have an account? </span>
@@ -382,6 +447,23 @@ const styles = {
   loginLink: {
     fontWeight: '600',
     color: 'var(--secondary)',
+  },
+  divider: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    margin: '0.25rem 0',
+  },
+  dividerLine: {
+    flex: 1,
+    height: '1px',
+    backgroundColor: 'var(--border-glass)',
+  },
+  dividerText: {
+    color: 'var(--text-muted)',
+    fontSize: '0.8rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
   },
 };
 

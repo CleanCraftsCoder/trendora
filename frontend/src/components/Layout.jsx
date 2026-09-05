@@ -2,49 +2,42 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import SuggestionsPanel from './SuggestionsPanel';
+import MobileTopBar from './MobileTopBar';
+import MobileBottomNav from './MobileBottomNav';
 
 const Layout = () => {
   return (
-    <div style={styles.layoutContainer}>
+    <div className="layout-root">
       {/* Background blobs for premium glassmorphism effect */}
       <div className="blob-container">
         <div className="blob blob-1"></div>
         <div className="blob blob-2"></div>
       </div>
 
-      {/* Sidebar Navigation */}
-      <Sidebar />
+      {/* Mobile Top Header (only visible on mobile screens <= 768px) */}
+      <MobileTopBar />
 
-      {/* Main Content Area */}
-      <main style={styles.mainContent}>
-        <Outlet />
-      </main>
+      <div className="layout-container">
+        {/* Desktop Sidebar (hidden on mobile screens <= 768px) */}
+        <div className="desktop-sidebar-container">
+          <Sidebar />
+        </div>
 
-      {/* Suggestions Panel */}
-      <SuggestionsPanel />
+        {/* Main Content Area */}
+        <main className="main-content-layout">
+          <Outlet />
+        </main>
+
+        {/* Suggestions Panel (hidden on screens <= 1100px) */}
+        <div className="desktop-suggestions-container">
+          <SuggestionsPanel />
+        </div>
+      </div>
+
+      {/* Mobile Bottom Navigation (only visible on mobile screens <= 768px) */}
+      <MobileBottomNav />
     </div>
   );
-};
-
-const styles = {
-  layoutContainer: {
-    display: 'flex',
-    minHeight: '100vh',
-    width: '100%',
-    backgroundColor: 'var(--bg-primary)',
-    color: 'var(--text-primary)',
-    position: 'relative',
-    gap: '1rem',
-  },
-  mainContent: {
-    flex: 1,
-    padding: '2rem',
-    minHeight: '100vh',
-    maxWidth: '750px',
-    margin: '0 auto',
-    width: '100%',
-    overflowY: 'auto',
-  },
 };
 
 export default Layout;

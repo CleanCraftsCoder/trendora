@@ -35,6 +35,7 @@ const config = {
   JWT_REFRESH_EXPIRY: process.env.JWT_REFRESH_EXPIRY || '7d',
   JWT_REFRESH_SECRET:
     process.env.JWT_REFRESH_SECRET || 'your_refresh_secret_key_min_32_chars',
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
 
   // Redis Configuration
   REDIS_HOST: process.env.REDIS_HOST || 'localhost',

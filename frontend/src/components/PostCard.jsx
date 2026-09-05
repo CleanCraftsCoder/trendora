@@ -133,7 +133,7 @@ const PostCard = ({ post, onDeleteSuccess }) => {
     .replace('/uploads', '');
 
   return (
-    <article style={styles.card} className="glass-panel" onClick={handlePostClick}>
+    <article style={styles.card} className="glass-panel post-card-container" onClick={handlePostClick}>
       {/* Header Info Area */}
       <div style={styles.header}>
         <div style={styles.authorInfo} onClick={(e) => { e.stopPropagation(); navigate(`/profile/${post.author?.username}`); }}>
@@ -243,7 +243,7 @@ const PostCard = ({ post, onDeleteSuccess }) => {
       )}
 
       {/* Engagement Actions Footer Bar */}
-      <div style={styles.actionsBar} onClick={(e) => e.stopPropagation()}>
+      <div style={styles.actionsBar} className="post-actions-bar" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={handleLikeToggle}
           style={{

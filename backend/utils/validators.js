@@ -3,6 +3,7 @@
  * Reusable validation functions
  */
 
+const dns = require('dns').promises;
 const { REGEX, USER, POST, COMMENT } = require('../config/constants');
 
 /**
@@ -297,7 +298,157 @@ const sanitizeInput = (input) => {
 };
 
 /**
- * Validate and sanitize email
+ * List of known disposable and anonymous email domains
+ */
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  'mailinator.com',
+  'tempmail.com',
+  '10minutemail.com',
+  'guerrillamail.com',
+  'throwawaymail.com',
+  'trashmail.com',
+  'yopmail.com',
+  'sharklasers.com',
+  'dispostable.com',
+  'fake.com',
+  'fakemailgenerator.com',
+  'getnada.com',
+  'mohmal.com',
+  'crazymailing.com',
+  'burnermail.io',
+  'temp-mail.org',
+  'generator.email',
+  'emailondeck.com',
+  'mytemp.email',
+  'inboxbear.com',
+  'dropmail.me',
+]);
+
+/**
+ * Validate Gmail specific address rules
+ * - Google requires 6 to 30 characters
+ * - Only a-z, 0-9, and periods (.)
+ * - Cannot start/end with dot, no consecutive dots
+ * - Reject anonymous/dummy usernames
+ * @param {string} email - Full email address
+ * @returns {Object} { valid: boolean, message?: string }
+ */
+const validateGmailAddress = (email) => {
+  const parts = email.split('@');
+  if (parts.length !== 2) {
+    return { valid: false, message: 'Invalid email address format' };
+  }
+
+  const [username, domain] = parts;
+  const lowerDomain = domain.toLowerCase();
+
+  if (lowerDomain === 'gmail.com' || lowerDomain === 'googlemail.com') {
+    // Check length: Google strictly requires 6 to 30 characters
+    if (username.length < 6 || username.length > 30) {
+      return {
+        valid: false,
+        message: `Invalid Gmail address: Gmail usernames must be between 6 and 30 characters long ("${email}" cannot exist on Gmail).`,
+      };
+    }
+
+    // Check characters: letters, numbers, and periods only
+    if (!/^[a-z0-9.]+$/i.test(username)) {
+      return {
+        valid: false,
+        message: 'Invalid Gmail address: only letters (a-z), numbers (0-9), and periods (.) are allowed.',
+      };
+    }
+
+    // Cannot start or end with a period, and cannot contain consecutive periods
+    if (username.startsWith('.') || username.endsWith('.') || username.includes('..')) {
+      return {
+        valid: false,
+        message: 'Invalid Gmail address: cannot begin or end with a dot or contain consecutive dots.',
+      };
+    }
+
+    // Check for anonymous / dummy placeholders
+    const cleanUsername = username.replace(/\./g, '').toLowerCase();
+    const anonymousPatterns = [
+      /^anonymous/i,
+      /^nobody/i,
+      /^dummy/i,
+      /^fakemail/i,
+      /^throwaway/i,
+      /^acb$/i,
+      /^abc$/i,
+    ];
+    for (const pattern of anonymousPatterns) {
+      if (pattern.test(cleanUsername)) {
+        return {
+          valid: false,
+          message: 'Anonymous and placeholder Gmail addresses are not accepted. Please use your genuine Google account.',
+        };
+      }
+    }
+  }
+
+  return { valid: true };
+};
+
+/**
+ * Check if an email uses a disposable / temporary email domain
+ * @param {string} email
+ * @returns {boolean}
+ */
+const isDisposableEmail = (email) => {
+  if (!email || !email.includes('@')) return false;
+  const domain = email.split('@')[1].toLowerCase().trim();
+  return DISPOSABLE_EMAIL_DOMAINS.has(domain);
+};
+
+/**
+ * Verify whether an email domain actually exists and can receive emails via DNS MX lookup
+ * @param {string} domain
+ * @returns {Promise<boolean>}
+ */
+const checkDomainExists = async (domain) => {
+  const cleanDomain = domain.toLowerCase().trim();
+
+  // Allow standard mock domains during unit tests
+  if (
+    process.env.NODE_ENV === 'test' &&
+    (cleanDomain === 'example.com' || cleanDomain.endsWith('.example.com') || cleanDomain === 'localhost')
+  ) {
+    return true;
+  }
+
+  try {
+    // Attempt to resolve MX records (mail exchange)
+    const mxRecords = await Promise.race([
+      dns.resolveMx(cleanDomain),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('DNS timeout')), 3000)),
+    ]);
+
+    if (Array.isArray(mxRecords) && mxRecords.length > 0) {
+      return true;
+    }
+  } catch (err) {
+    // If MX lookup failed, check A record as fallback (RFC 5321 fallback rule)
+    try {
+      const aRecords = await Promise.race([
+        dns.resolve(cleanDomain, 'A'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('DNS timeout')), 2000)),
+      ]);
+      if (Array.isArray(aRecords) && aRecords.length > 0) {
+        return true;
+      }
+    } catch (aErr) {
+      // Domain truly does not exist or has no DNS records
+      return false;
+    }
+  }
+
+  return false;
+};
+
+/**
+ * Validate and sanitize email synchronously (format, Gmail rules, disposable check)
  * @param {string} email - Email to validate and sanitize
  * @returns {Object} Result with email and validity
  */
@@ -308,7 +459,44 @@ const validateAndSanitizeEmail = (email) => {
     return { valid: false, email: sanitized, message: 'Invalid email format' };
   }
 
+  if (isDisposableEmail(sanitized)) {
+    return {
+      valid: false,
+      email: sanitized,
+      message: 'Disposable or temporary email addresses are not permitted. Please use a permanent email address.',
+    };
+  }
+
+  const gmailCheck = validateGmailAddress(sanitized);
+  if (!gmailCheck.valid) {
+    return { valid: false, email: sanitized, message: gmailCheck.message };
+  }
+
   return { valid: true, email: sanitized };
+};
+
+/**
+ * Validate and sanitize email asynchronously (includes DNS MX domain existence check)
+ * @param {string} email - Email to validate and sanitize
+ * @returns {Promise<Object>} Result with email and validity
+ */
+const validateAndSanitizeEmailAsync = async (email) => {
+  const syncResult = validateAndSanitizeEmail(email);
+  if (!syncResult.valid) {
+    return syncResult;
+  }
+
+  const domain = syncResult.email.split('@')[1];
+  const domainExists = await checkDomainExists(domain);
+  if (!domainExists) {
+    return {
+      valid: false,
+      email: syncResult.email,
+      message: `The email domain "${domain}" does not exist or cannot receive emails. Please provide an active, valid email address.`,
+    };
+  }
+
+  return syncResult;
 };
 
 module.exports = {
@@ -328,5 +516,9 @@ module.exports = {
   validatePageNumber,
   validateLimit,
   sanitizeInput,
+  validateGmailAddress,
+  isDisposableEmail,
+  checkDomainExists,
   validateAndSanitizeEmail,
+  validateAndSanitizeEmailAsync,
 };

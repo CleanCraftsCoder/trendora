@@ -48,4 +48,50 @@ describe('AI Caption Controller - Category Detection & Suggestions', () => {
       }
     });
   });
+
+  describe('generateDynamicCaptions', () => {
+    test('should return 3 captions and an array of hashtags', () => {
+      const result = aiController.generateDynamicCaptions({
+        filename: 'IMG_4021.jpg',
+        fileSize: 204800,
+        nonce: 1001,
+      });
+
+      expect(result).toHaveProperty('captions');
+      expect(result).toHaveProperty('hashtags');
+      expect(result.captions.length).toBe(3);
+      expect(result.hashtags.length).toBeGreaterThan(3);
+    });
+
+    test('should produce distinct captions across different posts and nonces', () => {
+      const result1 = aiController.generateDynamicCaptions({
+        filename: 'sunset_beach.jpg',
+        fileSize: 102400,
+        nonce: 100,
+        vibe: 'Chill 🌿',
+      });
+
+      const result2 = aiController.generateDynamicCaptions({
+        filename: 'gym_workout.jpg',
+        fileSize: 512000,
+        nonce: 9999,
+        vibe: 'Hype 🔥',
+      });
+
+      // Different inputs should not yield identical caption arrays
+      expect(result1.captions[0]).not.toBe(result2.captions[0]);
+    });
+
+    test('should respect user custom keywords and vibes', () => {
+      const result = aiController.generateDynamicCaptions({
+        filename: 'photo.jpg',
+        keywords: 'coffee latte art',
+        vibe: 'Aesthetic ✨',
+        nonce: 50,
+      });
+
+      expect(result.captions.some((c) => c.toLowerCase().includes('coffee') || c.toLowerCase().includes('latte'))).toBe(true);
+      expect(result.hashtags.some((h) => h.includes('coffee') || h.includes('latte') || h.includes('trendora'))).toBe(true);
+    });
+  });
 });

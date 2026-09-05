@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -41,7 +42,7 @@ const Login = () => {
         <div className="blob blob-2"></div>
       </div>
 
-      <div style={styles.card} className="glass-panel">
+      <div style={styles.card} className="glass-panel auth-card">
         <div style={styles.header}>
           <h1 style={styles.brandTitle}>Trendora</h1>
           <p style={styles.brandSubtitle}>Enter your credentials to access your feed</p>
@@ -113,6 +114,14 @@ const Login = () => {
             )}
           </button>
         </form>
+
+        <div style={styles.divider}>
+          <span style={styles.dividerLine}></span>
+          <span style={styles.dividerText}>or continue with</span>
+          <span style={styles.dividerLine}></span>
+        </div>
+
+        <GoogleAuthButton isSignup={false} onError={(msg) => setFormError(msg)} />
 
         <div style={styles.footer}>
           <span style={styles.footerText}>Don't have an account? </span>
@@ -234,6 +243,23 @@ const styles = {
   signupLink: {
     fontWeight: '600',
     color: 'var(--secondary)',
+  },
+  divider: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    margin: '0.25rem 0',
+  },
+  dividerLine: {
+    flex: 1,
+    height: '1px',
+    backgroundColor: 'var(--border-glass)',
+  },
+  dividerText: {
+    color: 'var(--text-muted)',
+    fontSize: '0.8rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
   },
 };
 

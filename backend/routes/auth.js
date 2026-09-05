@@ -100,6 +100,15 @@ router.post(
 );
 
 /**
+ * POST /api/auth/google
+ * Authenticate or register using Google credentials (ID Token)
+ */
+router.post(
+  '/google',
+  asyncHandler(authController.googleAuth)
+);
+
+/**
  * POST /api/auth/refresh
  * Refresh access token using refresh token
  *
@@ -145,6 +154,12 @@ router.post(
  * }
  */
 router.post('/forgot-password', asyncHandler(authController.forgotPassword));
+
+/**
+ * POST /api/auth/reset-password
+ * Reset user password with token
+ */
+router.post('/reset-password', asyncHandler(authController.resetPassword));
 
 /**
  * POST /api/auth/verify-email

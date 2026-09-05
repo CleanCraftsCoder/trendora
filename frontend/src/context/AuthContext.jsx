@@ -76,6 +76,54 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Google Auth handler
+  const loginWithGoogle = async (googlePayload) => {
+    setError(null);
+    try {
+      const payload = typeof googlePayload === 'string' 
+        ? { credential: googlePayload } 
+        : googlePayload;
+      const res = await api.post('/auth/google', payload);
+      const { user: userData, tokens } = res.data.data;
+
+      localStorage.setItem('accessToken', tokens.accessToken);
+      localStorage.setItem('refreshToken', tokens.refreshToken);
+      setUser(userData);
+
+      return userData;
+    } catch (err) {
+      const errMsg = err.response?.data?.error?.message || 'Google authentication failed.';
+      setError(errMsg);
+      throw new Error(errMsg);
+    }
+  };
+
+  // Forgot password request
+  const forgotPassword = async (email) => {
+    setError(null);
+    try {
+      const res = await api.post('/auth/forgot-password', { email });
+      return res.data;
+    } catch (err) {
+      const errMsg = err.response?.data?.error?.message || err.response?.data?.message || 'Failed to request password reset.';
+      setError(errMsg);
+      throw new Error(errMsg);
+    }
+  };
+
+  // Reset password with token
+  const resetPassword = async (token, newPassword) => {
+    setError(null);
+    try {
+      const res = await api.post('/auth/reset-password', { token, newPassword });
+      return res.data;
+    } catch (err) {
+      const errMsg = err.response?.data?.error?.message || err.response?.data?.message || 'Failed to reset password.';
+      setError(errMsg);
+      throw new Error(errMsg);
+    }
+  };
+
   // Logout handler
   const logout = async () => {
     setLoading(true);
@@ -99,6 +147,9 @@ export const AuthProvider = ({ children }) => {
     setError,
     login,
     register,
+    loginWithGoogle,
+    forgotPassword,
+    resetPassword,
     logout,
     isAuthenticated: !!user,
   };

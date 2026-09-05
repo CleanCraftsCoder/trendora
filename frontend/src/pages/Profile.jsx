@@ -193,7 +193,7 @@ const Profile = () => {
   return (
     <div style={styles.container}>
       {/* Cover Image Section */}
-      <div style={styles.coverContainer}>
+      <div style={styles.coverContainer} className="profile-cover-responsive">
         <img
           src={profile.coverImage ? getImageUrl(profile.coverImage) : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80'}
           alt="Cover"
@@ -222,8 +222,8 @@ const Profile = () => {
       </div>
 
       {/* Profile Info Details Header */}
-      <div style={styles.profileHeader}>
-        <div style={styles.avatarWrapper}>
+      <div style={styles.profileHeader} className="profile-header-responsive">
+        <div style={styles.avatarWrapper} className="profile-avatar-responsive">
           <img
             src={profile.profilePicture ? getImageUrl(profile.profilePicture) : `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.username}`}
             alt={profile.username}
