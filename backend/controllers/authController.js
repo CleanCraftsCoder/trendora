@@ -12,6 +12,7 @@ const {
 const { sendSuccess, sendError } = require('../utils/response');
 const { errors } = require('../middlewares/errorHandler');
 const logger = require('../utils/logger');
+const emailService = require('../services/emailService');
 const { validatePasswordStrength, validateAndSanitizeEmail, validateAndSanitizeEmailAsync } = require('../utils/validators');
 const { HTTP_STATUS, ERROR_CODES } = require('../config/constants');
 
@@ -341,7 +342,6 @@ const getCurrentUser = async (req, res, next) => {
  *
  * Note: Email sending will be implemented in later phase
  *
- * @param {Object} req - Express request object
 /**
  * Request Password Reset
  * POST /api/auth/forgot-password
@@ -371,30 +371,34 @@ const forgotPassword = async (req, res, next) => {
         email: sanitizedEmail,
       });
 
-      return sendSuccess(res, null, 'If an account exists with this email, password reset instructions have been sent.');
+      return sendSuccess(res, null, 'If an account exists with this email, a 6-digit confirmation code has been sent to your inbox.');
     }
 
-    // Generate reset token (valid for 1 hour)
+    // Generate 6-digit confirmation code (e.g. 749215) valid for 15 minutes
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
     const resetToken = require('crypto').randomBytes(32).toString('hex');
-    const resetExpiry = new Date(Date.now() + 60 * 60 * 1000);
+    const resetExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
+    user.resetPasswordCode = resetCode;
+    user.resetPasswordCodeExpiry = resetExpiry;
     user.verificationToken = resetToken;
     user.verificationExpiry = resetExpiry;
-    await user.save();
+    await user.save({ validateBeforeSave: false });
 
     logger.logAuthEvent('forgot_password_requested', user._id, true, {
       email: user.email,
     });
 
-    const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
-    logger.info(`Password reset link generated for ${user.email}: ${resetUrl}`);
+    // Send confirmation code & secure link to user's real email inbox
+    await emailService.sendPasswordResetEmail(user.email, {
+      code: resetCode,
+      resetToken,
+      username: user.username,
+    });
 
-    // In dev/test mode, return token and URL for immediate local testing without SMTP server
-    const responseData = process.env.NODE_ENV !== 'production'
-      ? { resetToken, resetUrl }
-      : null;
-
-    sendSuccess(res, responseData, 'If an account exists with this email, password reset instructions have been sent.');
+    // SECURITY: Under NO circumstances return the code or token in the HTTP response.
+    // The user must check their real email inbox to receive it.
+    sendSuccess(res, null, 'If an account exists with this email, a 6-digit confirmation code has been sent to your inbox.');
   } catch (error) {
     logger.logError('Forgot password error', error);
     next(errors.internalServerError('Password reset request failed'));
@@ -402,25 +406,28 @@ const forgotPassword = async (req, res, next) => {
 };
 
 /**
- * Reset Password with Token
+ * Reset Password with 6-Digit Code or Token
  * POST /api/auth/reset-password
  *
  * @param {Object} req - Express request object
- * @param {string} req.body.token - Password reset token
+ * @param {string} [req.body.email] - User email (required if using code)
+ * @param {string} [req.body.code] - 6-digit confirmation code sent to email
+ * @param {string} [req.body.token] - Password reset token (optional alternative)
  * @param {string} req.body.newPassword - New password
  * @param {Object} res - Express response object
  * @param {Function} next - Express next middleware function
  */
 const resetPassword = async (req, res, next) => {
   try {
-    const { token, newPassword } = req.body;
-
-    if (!token || typeof token !== 'string') {
-      return next(errors.badRequest('Reset token is required', { field: 'token' }));
-    }
+    const { email, code, token, newPassword } = req.body;
 
     if (!newPassword || typeof newPassword !== 'string') {
       return next(errors.badRequest('New password is required', { field: 'newPassword' }));
+    }
+
+    // Must provide either email + 6-digit code OR direct reset token
+    if (!token && (!email || !code)) {
+      return next(errors.badRequest('6-digit confirmation code and email are required to reset password.', { field: 'code' }));
     }
 
     // Validate password strength
@@ -429,21 +436,35 @@ const resetPassword = async (req, res, next) => {
       return next(errors.badRequest(passwordValidation.message, { field: 'newPassword' }));
     }
 
-    // Find user with active, unexpired token
-    const user = await User.findOne({
-      verificationToken: token.trim(),
-      verificationExpiry: { $gt: new Date() },
-    }).select('+verificationToken +verificationExpiry +password');
+    let user;
+
+    if (code && email) {
+      const sanitizedEmail = email.toLowerCase().trim();
+      const sanitizedCode = code.toString().trim();
+
+      user = await User.findOne({
+        email: sanitizedEmail,
+        resetPasswordCode: sanitizedCode,
+        resetPasswordCodeExpiry: { $gt: new Date() },
+      }).select('+resetPasswordCode +resetPasswordCodeExpiry +password');
+    } else if (token) {
+      user = await User.findOne({
+        verificationToken: token.trim(),
+        verificationExpiry: { $gt: new Date() },
+      }).select('+verificationToken +verificationExpiry +password');
+    }
 
     if (!user) {
       logger.logAuthEvent('reset_password_failed', null, false, {
-        reason: 'invalid_or_expired_token',
+        reason: 'invalid_or_expired_code',
       });
-      return next(errors.badRequest('Invalid or expired password reset token. Please request a new link.', { field: 'token' }));
+      return next(errors.badRequest('Invalid or expired confirmation code. Please check your email or request a new code.', { field: 'code' }));
     }
 
     // Update password (pre-save hook will hash it)
     user.password = newPassword;
+    user.resetPasswordCode = undefined;
+    user.resetPasswordCodeExpiry = undefined;
     user.verificationToken = undefined;
     user.verificationExpiry = undefined;
     await user.save();

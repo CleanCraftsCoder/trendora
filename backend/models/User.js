@@ -100,6 +100,16 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
+    resetPasswordCode: {
+      type: String,
+      select: false,
+    },
+
+    resetPasswordCodeExpiry: {
+      type: Date,
+      select: false,
+    },
+
     // Social Stats (Denormalized for performance)
     followersCount: {
       type: Number,

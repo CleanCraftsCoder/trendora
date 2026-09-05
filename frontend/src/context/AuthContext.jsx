@@ -111,11 +111,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Reset password with token
-  const resetPassword = async (token, newPassword) => {
+  // Reset password with confirmation code or token
+  const resetPassword = async (payloadOrToken, newPassword) => {
     setError(null);
     try {
-      const res = await api.post('/auth/reset-password', { token, newPassword });
+      const body = typeof payloadOrToken === 'object'
+        ? payloadOrToken
+        : { token: payloadOrToken, newPassword };
+      const res = await api.post('/auth/reset-password', body);
       return res.data;
     } catch (err) {
       const errMsg = err.response?.data?.error?.message || err.response?.data?.message || 'Failed to reset password.';
