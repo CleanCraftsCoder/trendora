@@ -389,11 +389,14 @@ const forgotPassword = async (req, res, next) => {
       email: user.email,
     });
 
-    // Send confirmation code & secure link to user's real email inbox
-    await emailService.sendPasswordResetEmail(user.email, {
+    // Send confirmation code & secure link to user's real email inbox in background
+    // (Non-blocking so email server latency or network restrictions never hang the client response)
+    emailService.sendPasswordResetEmail(user.email, {
       code: resetCode,
       resetToken,
       username: user.username,
+    }).catch((err) => {
+      logger.error('Background password reset email dispatch error:', err);
     });
 
     // SECURITY: Under NO circumstances return the code or token in the HTTP response.

@@ -11,11 +11,16 @@ const getTransporter = () => {
   if (!transporter) {
     if (config.EMAIL_USER && config.EMAIL_PASSWORD) {
       transporter = nodemailer.createTransport({
-        service: config.EMAIL_SERVICE || 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
           user: config.EMAIL_USER,
           pass: config.EMAIL_PASSWORD.replace(/\s+/g, ''), // Strip spaces from Google App Password
         },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 5000,
       });
     }
   }
