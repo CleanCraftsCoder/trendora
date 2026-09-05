@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../utils/api';
-import { Sparkles, Loader2, RefreshCw, Hash, Check } from 'lucide-react';
+import { Sparkles, Loader2, RefreshCw, Hash, Check, Bot } from 'lucide-react';
 
 const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
   const [loading, setLoading] = useState(false);
@@ -14,20 +14,36 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
 
   const VIBES = ['All', 'Aesthetic ✨', 'Chill 🌿', 'Hype 🔥', 'Tech 💻', 'Fitness ⚡', 'Minimal ☁️'];
 
-  const generateSuggestions = async () => {
-    if (!imageFile) return;
+  const QUICK_PROMPTS = [
+    '#jantarmantar #protest',
+    '#travel #wanderlust',
+    '#tech #ai #coding',
+    '#cricket #matchday',
+    '#fitness #workout',
+    '#foodie #streetfood'
+  ];
+
+  const generateSuggestions = async (promptOverride) => {
+    const activePrompt = typeof promptOverride === 'string' ? promptOverride : keywordInput;
+    if (!imageFile && !activePrompt.trim()) {
+      setError('Please enter hashtags or a prompt (e.g. #jantarmantar #protest) or select an image.');
+      return;
+    }
     setLoading(true);
     setError('');
     setActiveCaptionIdx(null);
     setSelectedTags([]);
 
     const formData = new FormData();
-    formData.append('image', imageFile);
+    if (imageFile) {
+      formData.append('image', imageFile);
+    }
     if (vibe && vibe !== 'All') {
       formData.append('vibe', vibe);
     }
-    if (keywordInput.trim()) {
-      formData.append('keywords', keywordInput.trim());
+    if (activePrompt.trim()) {
+      formData.append('prompt', activePrompt.trim());
+      formData.append('keywords', activePrompt.trim());
     }
     formData.append('nonce', Date.now().toString());
 
@@ -40,10 +56,15 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
       setHashtags(sugTags || []);
     } catch (err) {
       console.error('Failed to generate suggestions:', err);
-      setError('Failed to analyze image. Please try again.');
+      setError(err.response?.data?.error?.message || 'Failed to generate captions. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleQuickPromptClick = (promptStr) => {
+    setKeywordInput(promptStr);
+    generateSuggestions(promptStr);
   };
 
   const handleCaptionClick = (caption, index) => {
@@ -75,12 +96,16 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
         <div style={styles.headerTitle}>
           <Sparkles size={18} style={{ color: 'var(--secondary)' }} />
           <h4 style={{ margin: 0, fontWeight: '700', fontSize: '0.95rem' }}>AI Caption Assistant</h4>
+          <span style={styles.aiBadge}>
+            <Bot size={12} style={{ marginRight: '0.2rem' }} />
+            Mistral / NLP
+          </span>
         </div>
         
         {captions.length > 0 && (
           <button 
             type="button" 
-            onClick={generateSuggestions} 
+            onClick={() => generateSuggestions()} 
             disabled={loading} 
             style={styles.refreshBtn}
             title="Generate new, different captions"
@@ -117,7 +142,7 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
         <div style={styles.hintRow}>
           <input
             type="text"
-            placeholder="Optional hint: e.g. sunset, workout, coffee, coding..."
+            placeholder="Enter hashtag prompt: e.g. #jantarmantar #protest or #travel #mountains..."
             value={keywordInput}
             onChange={(e) => setKeywordInput(e.target.value)}
             className="input-field"
@@ -130,27 +155,49 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
             }}
           />
         </div>
+
+        {/* Quick prompt chips */}
+        <div style={styles.quickPromptsRow}>
+          <span style={styles.quickPromptLabel}>Quick prompts:</span>
+          <div style={styles.quickPromptChips}>
+            {QUICK_PROMPTS.map((qp) => (
+              <button
+                key={qp}
+                type="button"
+                onClick={() => handleQuickPromptClick(qp)}
+                style={{
+                  ...styles.quickPromptChip,
+                  ...(keywordInput === qp ? styles.activeQuickPromptChip : {})
+                }}
+              >
+                {qp}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {captions.length === 0 ? (
         <div style={styles.ctaBlock}>
           <p style={styles.ctaText}>
-            Let Trendora AI write unique, customized captions and trending hashtags based on your photo.
+            {imageFile 
+              ? 'Trendora AI will analyze your photo and hashtags to write dynamic, custom captions.'
+              : 'Enter your hashtags or prompt above (e.g. #jantarmantar #protest) to generate dynamic captions.'}
           </p>
           <button
             type="button"
-            onClick={generateSuggestions}
-            disabled={loading || !imageFile}
+            onClick={() => generateSuggestions()}
+            disabled={loading || (!imageFile && !keywordInput.trim())}
             className="btn-primary"
             style={{
               ...styles.generateBtn,
-              ...(!imageFile ? styles.disabledBtn : {})
+              ...(!imageFile && !keywordInput.trim() ? styles.disabledBtn : {})
             }}
           >
             {loading ? (
               <>
                 <Loader2 size={16} className="spinner" style={{ marginRight: '0.5rem' }} />
-                Generating Unique Captions...
+                Generating Dynamic Captions...
               </>
             ) : (
               <>
@@ -177,8 +224,8 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
                   className="glass-panel"
                 >
                   <div style={styles.cardHeader}>
-                    <span style={{ ...styles.toneBadge, ...tones[idx].style }}>
-                      {tones[idx].name}
+                    <span style={{ ...styles.toneBadge, ...(tones[idx] ? tones[idx].style : styles.toneAesthetic) }}>
+                      {tones[idx] ? tones[idx].name : `Tone ${idx + 1}`}
                     </span>
                     {activeCaptionIdx === idx && (
                       <span style={styles.copiedIndicator}>
@@ -247,6 +294,18 @@ const styles = {
     alignItems: 'center',
     gap: '0.5rem',
     color: 'var(--text-primary)',
+    flexWrap: 'wrap',
+  },
+  aiBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    fontSize: '0.68rem',
+    padding: '0.15rem 0.45rem',
+    borderRadius: 'var(--radius-full)',
+    background: 'rgba(0, 242, 254, 0.1)',
+    color: 'var(--secondary)',
+    border: '1px solid rgba(0, 242, 254, 0.25)',
+    fontWeight: '600',
   },
   refreshBtn: {
     background: 'transparent',
@@ -309,9 +368,40 @@ const styles = {
   },
   hintInput: {
     width: '100%',
-    padding: '0.45rem 0.75rem',
-    fontSize: '0.8rem',
+    padding: '0.55rem 0.75rem',
+    fontSize: '0.85rem',
     borderRadius: 'var(--radius-sm)',
+  },
+  quickPromptsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    flexWrap: 'wrap',
+  },
+  quickPromptLabel: {
+    fontSize: '0.7rem',
+    color: 'var(--text-muted)',
+    fontWeight: '600',
+  },
+  quickPromptChips: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0.35rem',
+  },
+  quickPromptChip: {
+    background: 'rgba(255, 255, 255, 0.03)',
+    border: '1px solid var(--border-glass)',
+    color: 'var(--text-secondary)',
+    borderRadius: 'var(--radius-sm)',
+    padding: '0.15rem 0.5rem',
+    fontSize: '0.72rem',
+    cursor: 'pointer',
+    transition: 'var(--transition-fast)',
+  },
+  activeQuickPromptChip: {
+    borderColor: 'var(--secondary)',
+    color: 'var(--secondary)',
+    background: 'rgba(0, 242, 254, 0.08)',
   },
   ctaBlock: {
     display: 'flex',

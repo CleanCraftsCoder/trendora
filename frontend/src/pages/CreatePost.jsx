@@ -170,14 +170,12 @@ const CreatePost = () => {
           )}
         </div>
 
-        {/* AI Caption Assistant Section (Phase 13) */}
-        {selectedFiles.length > 0 && (
-          <CaptionAssistant
-            imageFile={selectedFiles[0]}
-            onSelectCaption={(sugCap) => setCaption(sugCap)}
-            onSelectHashtags={handleSelectHashtags}
-          />
-        )}
+        {/* AI Caption Assistant Section */}
+        <CaptionAssistant
+          imageFile={selectedFiles.length > 0 ? selectedFiles[0] : null}
+          onSelectCaption={(sugCap) => setCaption(sugCap)}
+          onSelectHashtags={handleSelectHashtags}
+        />
 
         {/* Caption Form Input */}
         <div className="input-group">

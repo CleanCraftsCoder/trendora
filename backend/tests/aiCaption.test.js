@@ -93,5 +93,29 @@ describe('AI Caption Controller - Category Detection & Suggestions', () => {
       expect(result.captions.some((c) => c.toLowerCase().includes('coffee') || c.toLowerCase().includes('latte'))).toBe(true);
       expect(result.hashtags.some((h) => h.includes('coffee') || h.includes('latte') || h.includes('trendora'))).toBe(true);
     });
+
+    test('should dynamically generate civic & solidarity captions for hashtag prompt #jantarmantar #protest', () => {
+      const result = aiController.generateDynamicCaptions({
+        prompt: '#jantarmantar #protest',
+      });
+
+      expect(result).toHaveProperty('captions');
+      expect(result).toHaveProperty('hashtags');
+      expect(result.captions.length).toBe(3);
+
+      // Verify that captions contain relevant civic/protest context
+      const allCaptionsText = result.captions.join(' ').toLowerCase();
+      expect(allCaptionsText).toMatch(/jantar mantar|solidarity|democracy|justice|voices|peaceful|change/);
+
+      // Verify hashtags include jantarmantar, protest, and civic action tags
+      expect(result.hashtags).toContain('jantarmantar');
+      expect(result.hashtags).toContain('protest');
+      expect(result.hashtags.some((h) => /democracy|peaceful|solidarity|justice|voice/.test(h))).toBe(true);
+    });
+
+    test('should handle Mistral API configuration export', () => {
+      expect(typeof aiController.callMistralAPI).toBe('function');
+      expect(typeof aiController.callOpenAIAPI).toBe('function');
+    });
   });
 });

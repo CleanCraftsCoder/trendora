@@ -89,8 +89,11 @@ const config = {
   LOG_MAX_DAYS: parseInt(process.env.LOG_MAX_DAYS, 10) || 14,
 
   // AI Services
+  MISTRAL_API_KEY: process.env.MISTRAL_API_KEY || '',
+  MISTRAL_MODEL: process.env.MISTRAL_MODEL || 'mistral-small-latest',
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
   OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   HUGGINGFACE_API_KEY: process.env.HUGGINGFACE_API_KEY || '',
 
   // Socket.io Configuration
