@@ -90,7 +90,7 @@ const config = {
 
   // AI Services
   MISTRAL_API_KEY: process.env.MISTRAL_API_KEY || '',
-  MISTRAL_MODEL: process.env.MISTRAL_MODEL || 'mistral-small-latest',
+  MISTRAL_MODEL: process.env.MISTRAL_MODEL || 'open-mistral-7b',
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
   OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',

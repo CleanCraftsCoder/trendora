@@ -586,6 +586,17 @@ const generateDynamicCaptions = ({ filename = '', keywords = '', vibe = '', prom
 };
 
 /**
+ * Helper to safely extract a clean caption string from either a string or structured object
+ */
+const extractCaptionText = (item) => {
+  if (typeof item === 'string') return item.trim();
+  if (item && typeof item === 'object') {
+    return (item.text || item.caption || item.aesthetic || item.energetic || item.professional || Object.values(item)[0] || '').trim();
+  }
+  return String(item || '').trim();
+};
+
+/**
  * Call Mistral AI chat completions API
  */
 const callMistralAPI = async ({ prompt = '', keywords = '', vibe = '', filename = '' }) => {
@@ -594,7 +605,8 @@ const callMistralAPI = async ({ prompt = '', keywords = '', vibe = '', filename 
     return null;
   }
 
-  const model = process.env.MISTRAL_MODEL || 'mistral-small-latest';
+  // Use open-mistral-7b by default as it is supported on free tier without strict rate limits
+  const model = process.env.MISTRAL_MODEL || 'open-mistral-7b';
   const fullPrompt = [prompt, keywords, vibe].filter(Boolean).join(' ');
 
   const systemMessage = `You are Trendora's dynamic social media AI assistant.
@@ -608,46 +620,67 @@ Respond with a valid JSON object with EXACTLY this structure:
   ],
   "hashtags": ["hashtag1", "hashtag2", "hashtag3", "hashtag4", "hashtag5", "hashtag6", "hashtag7"]
 }
-Do NOT return any markdown, backticks, or other text outside the JSON object.`;
+Each item in "captions" MUST be a string. Do NOT return any markdown, backticks, or text outside the JSON object.`;
 
-  const userMessage = `Generate 3 dynamic captions and 7 relevant hashtags for: "${fullPrompt || filename || 'special moments'}".`;
+  const userMessage = `Generate 3 distinct captions and 7 relevant hashtags for: "${fullPrompt || filename || 'special moments'}".`;
 
-  try {
-    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey.trim()}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemMessage },
-          { role: 'user', content: userMessage }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.75,
-      }),
-    });
+  const modelsToTry = [model, 'open-mistral-7b', 'mistral-small-latest'];
+  const uniqueModels = [...new Set(modelsToTry)];
 
-    if (response.ok) {
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (content) {
-        const parsed = JSON.parse(content);
-        if (Array.isArray(parsed.captions) && parsed.captions.length >= 3) {
-          return {
-            captions: parsed.captions.slice(0, 3),
-            hashtags: (parsed.hashtags || []).map((t) => t.replace(/^#/, '').toLowerCase()).slice(0, 8),
-          };
+  for (const currentModel of uniqueModels) {
+    try {
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey.trim()}`,
+        },
+        body: JSON.stringify({
+          model: currentModel,
+          messages: [
+            { role: 'system', content: systemMessage },
+            { role: 'user', content: userMessage }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.75,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          const parsed = JSON.parse(content);
+          const rawCaptions = Array.isArray(parsed.captions) 
+            ? parsed.captions 
+            : (parsed.captions && typeof parsed.captions === 'object' ? Object.values(parsed.captions) : []);
+          
+          const cleanCaptions = rawCaptions.map(extractCaptionText).filter(Boolean);
+
+          if (cleanCaptions.length >= 3) {
+            const rawTags = Array.isArray(parsed.hashtags) 
+              ? parsed.hashtags 
+              : (parsed.hashtags && typeof parsed.hashtags === 'object' ? Object.values(parsed.hashtags) : []);
+
+            const cleanTags = rawTags
+              .map((t) => (typeof t === 'string' ? t.replace(/^#/, '').toLowerCase() : Object.values(t)[0]))
+              .filter(Boolean)
+              .slice(0, 8);
+
+            logger.info('Successfully generated captions via Mistral AI', { model: currentModel });
+            return {
+              captions: cleanCaptions.slice(0, 3),
+              hashtags: cleanTags,
+            };
+          }
         }
+      } else {
+        const errText = await response.text();
+        logger.warn(`Mistral API error with model ${currentModel}`, { status: response.status, error: errText });
       }
-    } else {
-      const errText = await response.text();
-      logger.warn('Mistral API error', { status: response.status, error: errText });
+    } catch (err) {
+      logger.warn(`Mistral API call failed with model ${currentModel}`, { error: err.message });
     }
-  } catch (err) {
-    logger.warn('Mistral API call failed', { error: err.message });
   }
 
   return null;

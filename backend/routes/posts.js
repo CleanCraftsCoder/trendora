@@ -29,15 +29,23 @@ router.post(
   asyncHandler(postController.createPost)
 );
 
+const optionalUpload = (req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) {
+    return upload.single('image')(req, res, next);
+  }
+  next();
+};
+
 /**
  * @route   POST /api/posts/generate-caption
- * @desc    Generate AI captions from an uploaded image
+ * @desc    Generate AI captions from prompt, hashtags, or an uploaded image
  * @access  Private
  */
 router.post(
   '/generate-caption',
   authenticate,
-  upload.single('image'),
+  optionalUpload,
   asyncHandler(aiController.generateCaption)
 );
 

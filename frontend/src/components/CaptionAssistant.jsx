@@ -34,23 +34,32 @@ const CaptionAssistant = ({ imageFile, onSelectCaption, onSelectHashtags }) => {
     setActiveCaptionIdx(null);
     setSelectedTags([]);
 
-    const formData = new FormData();
-    if (imageFile) {
-      formData.append('image', imageFile);
-    }
-    if (vibe && vibe !== 'All') {
-      formData.append('vibe', vibe);
-    }
-    if (activePrompt.trim()) {
-      formData.append('prompt', activePrompt.trim());
-      formData.append('keywords', activePrompt.trim());
-    }
-    formData.append('nonce', Date.now().toString());
-
     try {
-      const res = await api.post('/posts/generate-caption', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      let res;
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        if (vibe && vibe !== 'All') {
+          formData.append('vibe', vibe);
+        }
+        if (activePrompt.trim()) {
+          formData.append('prompt', activePrompt.trim());
+          formData.append('keywords', activePrompt.trim());
+        }
+        formData.append('nonce', Date.now().toString());
+
+        res = await api.post('/posts/generate-caption', formData, {
+          headers: { 'Content-Type': undefined },
+        });
+      } else {
+        res = await api.post('/posts/generate-caption', {
+          prompt: activePrompt.trim(),
+          keywords: activePrompt.trim(),
+          vibe: vibe && vibe !== 'All' ? vibe : '',
+          nonce: Date.now().toString(),
+        });
+      }
+
       const { captions: sugCaptions, hashtags: sugTags } = res.data;
       setCaptions(sugCaptions || []);
       setHashtags(sugTags || []);
